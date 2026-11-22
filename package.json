@@ -1,10 +1,16 @@
 {
   "name": "@anyr/pi",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "./index.mjs",
   "description": "Official AnyRouter provider extension for the pi coding agent",
-  "keywords": ["pi", "pi-package", "pi-extension", "anyrouter", "openai-compatible"],
+  "keywords": [
+    "pi",
+    "pi-package",
+    "pi-extension",
+    "anyrouter",
+    "openai-compatible"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -14,9 +20,16 @@
   "bugs": {
     "url": "https://github.com/AnyRouterHQ/pi-anyrouter/issues"
   },
-  "files": ["LICENSE", "README.md", "index.mjs", "src"],
+  "files": [
+    "LICENSE",
+    "README.md",
+    "index.mjs",
+    "src"
+  ],
   "pi": {
-    "extensions": ["./index.mjs"]
+    "extensions": [
+      "./index.mjs"
+    ]
   },
   "scripts": {
     "test": "node --test test/*.test.mjs",
