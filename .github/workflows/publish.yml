@@ -25,4 +25,5 @@ jobs:
         run: node -e 'const v=require("./package.json").version; if(!/^0\.1\.\d+/.test(v)) { console.error(v+" is outside 0.1.x"); process.exit(1) }'
       - run: npm publish --access public
         env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
