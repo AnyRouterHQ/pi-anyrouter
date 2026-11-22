@@ -15,14 +15,25 @@ the URL, because that guess treats an unknown host as OpenAI
 
 ## Install
 
+Two options. Use the extension when you want the live catalog and the compatibility flags. Use the AnyRouter CLI when you want the shortest path, and the launcher writes the provider, sets the key and starts pi.
+
+Extension, from npm (published under the `@anyr` scope):
+
 ```bash
 pi install @anyr/pi
 ```
 
-From git:
+Extension, from git:
 
 ```bash
 pi install git:github.com/AnyRouterHQ/pi-anyrouter
+```
+
+Or the AnyRouter CLI:
+
+```bash
+curl -fsSL https://anyr.dev/cli.sh | bash
+anyr pi
 ```
 
 Then:
