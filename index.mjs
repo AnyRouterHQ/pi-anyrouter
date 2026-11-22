@@ -4,10 +4,15 @@ import { fetchCatalog } from "./src/catalog.mjs"
 /**
  * Official AnyRouter provider for the pi coding agent.
  *
+ * Endpoint: https://anyrouter.dev/api/v1
+ *
  * AnyRouter speaks OpenAI Chat Completions, so the provider delegates request
  * conversion and streaming to pi's built-in `openai-completions` implementation
- * and only owns the endpoint, the key and the live catalog. The base URL is the
- * official domain; the catalog fetch refuses any other host.
+ * and only owns the endpoint, the key and the live catalog. That keeps pi's
+ * message conversion, tool handling, usage accounting and cancellation intact.
+ *
+ * The catalog fetch caches for five minutes and dedupes concurrent refreshes,
+ * so a client that reloads often does not hammer the endpoint.
  */
 export default function (pi) {
   pi.registerProvider(PROVIDER_ID, {

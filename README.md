@@ -21,6 +21,10 @@ name and points at a different host; this repository is the official one.
 ## Install
 
 ```bash
+# From npm, under the @anyr scope
+pi install @anyr/pi
+
+# From git
 pi install git:github.com/AnyRouterHQ/pi-anyrouter
 ```
 

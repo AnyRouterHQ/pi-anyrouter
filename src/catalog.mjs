@@ -1,41 +1,31 @@
-import { LOOK_ALIKE_HOSTS, OFFICIAL_BASE_URL } from "./config.mjs"
+import { CATALOG_TTL_MS, OFFICIAL_BASE_URL } from "./config.mjs"
 
-export { OFFICIAL_BASE_URL, OFFICIAL_MESSAGES_URL } from "./config.mjs"
+export { CATALOG_TTL_MS, OFFICIAL_BASE_URL, OFFICIAL_MESSAGES_URL } from "./config.mjs"
 
-export function findLookAlikes(text) {
-  return LOOK_ALIKE_HOSTS.filter((host) => String(text).includes(host))
+const num = (value) => {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
 }
 
-/** Throw unless the base URL is the official AnyRouter API root. */
+/** Throw unless the endpoint is the official AnyRouter API root. */
 export function assertOfficialBaseUrl(baseUrl = OFFICIAL_BASE_URL) {
   if (baseUrl !== OFFICIAL_BASE_URL) {
     throw new Error(`refusing a non-official AnyRouter base URL: ${baseUrl}`)
   }
-  const hits = findLookAlikes(baseUrl)
-  if (hits.length > 0) {
-    throw new Error(`non-official domain in base URL: ${hits.join(", ")}`)
-  }
   return baseUrl
 }
 
-const num = (value) => {
-  const n = Number(value)
-  return Number.isFinite(n) ? n : 0
-}
-
-/**
- * AnyRouter's `/models` row into a pi chat model. Only fields pi needs are
- * mapped; context and output limits fall back when the catalog omits them.
- */
+/** AnyRouter's `/models` row into a pi chat model. */
 export function mapModel(model) {
-  const capabilities = Array.isArray(model.capabilities) ? model.capabilities : []
+  const capabilities = model.capabilities
+  const supports = (name) => Array.isArray(capabilities) && capabilities.includes(name)
   const pricing = model.pricing ?? {}
   return {
     type: "chat",
     id: model.id,
     name: model.display_name ?? model.name ?? model.id,
-    reasoning: capabilities.includes("reasoning"),
-    input: capabilities.includes("vision") ? ["text", "image"] : ["text"],
+    reasoning: supports("reasoning"),
+    input: supports("vision") ? ["text", "image"] : ["text"],
     cost: {
       input: num(pricing.input_per_1m),
       output: num(pricing.output_per_1m),
@@ -47,13 +37,9 @@ export function mapModel(model) {
   }
 }
 
-/** Fetch the live catalog and return pi model configs. */
-export async function fetchCatalog(
-  baseUrl = OFFICIAL_BASE_URL,
-  apiKey = process.env.ANYROUTER_API_KEY ?? "",
-  signal,
-) {
-  assertOfficialBaseUrl(baseUrl)
+let cache = null
+
+async function requestCatalog(baseUrl, apiKey, signal) {
   const response = await fetch(`${baseUrl}/models`, {
     headers: apiKey ? { authorization: `Bearer ${apiKey}` } : {},
     signal,
@@ -64,4 +50,36 @@ export async function fetchCatalog(
   const body = await response.json()
   const rows = Array.isArray(body?.data) ? body.data : []
   return rows.map(mapModel)
+}
+
+/**
+ * Fetch the live catalog, reusing a fresh result and one request per refresh.
+ * A failed fetch clears the cache so the next call retries instead of serving
+ * a stale failure.
+ */
+export async function fetchCatalog(
+  baseUrl = OFFICIAL_BASE_URL,
+  apiKey = process.env.ANYROUTER_API_KEY ?? "",
+  signal,
+) {
+  assertOfficialBaseUrl(baseUrl)
+  const now = Date.now()
+  if (cache && now - cache.at < CATALOG_TTL_MS) {
+    return cache.inFlight ?? cache.models
+  }
+  const inFlight = requestCatalog(baseUrl, apiKey, signal)
+  cache = { at: now, models: null, inFlight }
+  try {
+    const models = await inFlight
+    cache = { at: Date.now(), models, inFlight: null }
+    return models
+  } catch (error) {
+    cache = null
+    throw error
+  }
+}
+
+/** Drop the cache so the next refresh is a live fetch. */
+export function clearCatalogCache() {
+  cache = null
 }
