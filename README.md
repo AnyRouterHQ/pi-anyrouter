@@ -6,6 +6,10 @@ Official [AnyRouter](https://anyrouter.dev) provider for the
 [pi coding agent](https://github.com/earendil-works/pi). One `sk-ar-v1-` key
 reaches the chat models in the catalog. AnyRouter routes and fails over.
 
+The official AnyRouter website is [anyrouter.dev](https://anyrouter.dev), and
+[anyr.dev](https://anyr.dev) is its short link. They are the only valid domains
+for the API, docs, pricing and artifacts.
+
 The extension registers a single `anyrouter` provider with pi's built-in
 `openai-completions` implementation and refreshes models from
 `GET /api/v1/models`. Pi keeps message conversion, tool calls, usage and
