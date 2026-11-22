@@ -47,12 +47,25 @@ const jsonResponse = (body, url = `${OFFICIAL_BASE_URL}/models`) => ({
   json: async () => body,
 })
 
+function abortError() {
+  return new DOMException("The operation was aborted", "AbortError")
+}
+
 function stubFetch(handler) {
   const original = globalThis.fetch
   const calls = []
   globalThis.fetch = async (url, init) => {
     calls.push({ url: String(url), init })
-    return handler(calls.length, String(url), init)
+    const response = handler(calls.length, String(url), init)
+    if (!init?.signal) return response
+    const aborted = new Promise((_, reject) => {
+      if (init.signal.aborted) {
+        reject(abortError())
+        return
+      }
+      init.signal.addEventListener("abort", () => reject(abortError()), { once: true })
+    })
+    return Promise.race([Promise.resolve(response), aborted])
   }
   return {
     calls,
@@ -207,6 +220,7 @@ test("a fetch sends the key and attribution headers and drops non-chat rows", as
     assert.equal(stub.calls[0].init.headers.authorization, "Bearer sk-ar-v1-test")
     assert.equal(stub.calls[0].init.headers["X-AnyRouter-Title"], attributionHeaders()["X-AnyRouter-Title"])
     assert.equal(stub.calls[0].init.headers["HTTP-Referer"], "https://anyrouter.dev/")
+    assert.equal(stub.calls[0].init.redirect, "error")
   } finally {
     stub.restore()
   }
@@ -307,14 +321,80 @@ test("a body without a data array is an error, not an empty catalog", async () =
   }
 })
 
-test("the abort signal is passed through to fetch", async () => {
+test("aborting the caller aborts the catalog fetch", async () => {
   clearCatalogCache()
-  const stub = stubFetch(() => jsonResponse({ data: [] }))
+  const stub = stubFetch(() => new Promise(() => {}))
   const controller = new AbortController()
   try {
-    await fetchCatalog(OFFICIAL_BASE_URL, "", controller.signal)
-    assert.equal(stub.calls[0].init.signal, controller.signal)
+    const pending = fetchCatalog(OFFICIAL_BASE_URL, "sk-ar-v1-test", controller.signal)
+    assert.equal(stub.calls.length, 1)
+    assert.equal(stub.calls[0].init.signal.aborted, false)
+    controller.abort()
+    assert.equal(stub.calls[0].init.signal.aborted, true)
+    await assert.rejects(pending, /aborted/)
   } finally {
+    stub.restore()
+  }
+})
+
+test("an aborted catalog flight is not reused and cannot drop the replacement", async () => {
+  clearCatalogCache()
+  let releaseFirst
+  const firstGate = new Promise((resolve) => {
+    releaseFirst = resolve
+  })
+  let phase = "first"
+  const stub = stubFetch(() => {
+    if (phase === "first") return firstGate.then(() => jsonResponse({ data: [claude] }))
+    return jsonResponse({ data: [{ ...claude, id: "openai/gpt-5.4-mini" }] })
+  })
+  const controller = new AbortController()
+  try {
+    const first = fetchCatalog(OFFICIAL_BASE_URL, "sk-ar-v1-test", controller.signal)
+    assert.equal(stub.calls.length, 1)
+    controller.abort()
+    phase = "second"
+    const second = await fetchCatalog(OFFICIAL_BASE_URL, "sk-ar-v1-test", new AbortController().signal)
+    assert.equal(second[0].id, "openai/gpt-5.4-mini")
+    assert.equal(stub.calls.length, 2)
+    releaseFirst()
+    await assert.rejects(first, /aborted/)
+    const third = await fetchCatalog(OFFICIAL_BASE_URL, "sk-ar-v1-test")
+    assert.equal(stub.calls.length, 2)
+    assert.equal(third[0].id, "openai/gpt-5.4-mini")
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a hung catalog request times out and the next call retries", async () => {
+  clearCatalogCache()
+  let hang = true
+  const stub = stubFetch(() => {
+    if (hang) return new Promise(() => {})
+    return jsonResponse({ data: [claude] })
+  })
+  // AbortSignal.timeout does not keep the event loop alive. This timer does,
+  // so the test runner waits until the catalog signal actually aborts.
+  let keepAlive
+  const alive = new Promise((resolve) => {
+    keepAlive = setTimeout(resolve, 500)
+  })
+  try {
+    const pending = fetchCatalog(OFFICIAL_BASE_URL, "sk-ar-v1-test", undefined, { timeoutMs: 20 })
+    const signal = stub.calls[0].init.signal
+    await Promise.race([
+      new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true })),
+      alive,
+    ])
+    assert.equal(signal.aborted, true)
+    await assert.rejects(pending, /aborted/)
+    hang = false
+    const models = await fetchCatalog(OFFICIAL_BASE_URL, "sk-ar-v1-test")
+    assert.equal(stub.calls.length, 2)
+    assert.equal(models[0].id, claude.id)
+  } finally {
+    clearTimeout(keepAlive)
     stub.restore()
   }
 })

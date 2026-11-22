@@ -1,4 +1,5 @@
 import {
+  CATALOG_TIMEOUT_MS,
   CATALOG_TTL_MS,
   DEFAULT_MAX_OUTPUT_TOKENS,
   OFFICIAL_BASE_URL,
@@ -7,6 +8,7 @@ import {
 } from "./config.mjs"
 
 export {
+  CATALOG_TIMEOUT_MS,
   CATALOG_TTL_MS,
   DEFAULT_MAX_OUTPUT_TOKENS,
   OFFICIAL_BASE_URL,
@@ -145,11 +147,17 @@ function assertOfficialResponse(response, requestUrl) {
   }
 }
 
+function catalogSignal(signal, timeoutMs) {
+  const timeout = AbortSignal.timeout(timeoutMs)
+  return signal ? AbortSignal.any([signal, timeout]) : timeout
+}
+
 async function requestCatalog(baseUrl, apiKey, signal) {
   const requestUrl = `${baseUrl}/models`
   const headers = { ...attributionHeaders() }
   if (apiKey) headers.authorization = `Bearer ${apiKey}`
-  const response = await fetch(requestUrl, { headers, signal })
+  // `redirect: "error"` fails closed before a 3xx can leave the official origin.
+  const response = await fetch(requestUrl, { headers, signal, redirect: "error" })
   assertOfficialResponse(response, requestUrl)
   if (!response.ok) {
     throw new Error(`AnyRouter catalog failed: HTTP ${response.status}`)
@@ -162,28 +170,37 @@ async function requestCatalog(baseUrl, apiKey, signal) {
 }
 
 /**
- * Fetch the live catalog. One in-flight request per API key, reused until
- * `CATALOG_TTL_MS` passes. `force` skips a completed entry. A failure removes
- * the entry so the next call retries. The key is the cache identity because
- * the catalog response varies on Authorization.
+ * Fetch the live catalog. One live in-flight request per API key, reused until
+ * `CATALOG_TTL_MS` passes. `force` skips a completed entry and still joins a
+ * request that has not been aborted. Pi aborts the previous refresh when a new
+ * one starts, so an aborted flight is not joined and its failure cannot delete
+ * the replacement entry. The key is the cache identity because the catalog
+ * response varies on Authorization.
  */
 export async function fetchCatalog(baseUrl = OFFICIAL_BASE_URL, apiKey = "", signal, options = {}) {
   assertOfficialBaseUrl(baseUrl)
   const now = Date.now()
   const hit = cache.get(apiKey)
-  if (hit?.inFlight) return hit.inFlight
-  if (!options.force && hit && now - hit.at < CATALOG_TTL_MS) return hit.models
+  if (hit?.inFlight && !hit.signal?.aborted) return hit.inFlight
+  if (!options.force && Array.isArray(hit?.models) && now - hit.at < CATALOG_TTL_MS) return hit.models
 
-  const inFlight = requestCatalog(baseUrl, apiKey, signal)
-  cache.set(apiKey, { at: now, models: null, inFlight })
-  try {
-    const models = await inFlight
-    cache.set(apiKey, { at: Date.now(), models, inFlight: null })
-    return models
-  } catch (error) {
-    cache.delete(apiKey)
-    throw error
-  }
+  const signalForFetch = catalogSignal(signal, options.timeoutMs ?? CATALOG_TIMEOUT_MS)
+  const entry = { at: now, models: null, inFlight: null, signal: signalForFetch }
+  const inFlight = requestCatalog(baseUrl, apiKey, signalForFetch).then(
+    (models) => {
+      if (cache.get(apiKey) === entry) {
+        cache.set(apiKey, { at: Date.now(), models, inFlight: null, signal: null })
+      }
+      return models
+    },
+    (error) => {
+      if (cache.get(apiKey) === entry) cache.delete(apiKey)
+      throw error
+    },
+  )
+  entry.inFlight = inFlight
+  cache.set(apiKey, entry)
+  return inFlight
 }
 
 /** Drop cached catalogs so the next refresh is a live fetch. */

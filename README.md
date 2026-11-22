@@ -66,7 +66,8 @@ ids, such as `anthropic/claude-sonnet-4-6` or `anyrouter/free`.
 - Attribution headers identify the app as AnyRouter for pi.
 
 The catalog is cached for five minutes per API key, which matches the
-response `max-age`. Pi's offline refresh pass does not hit the network.
+response `max-age`. A live refresh is saved for Pi's offline pass. That
+pass restores the saved list and does not hit the network.
 
 ## Limits
 

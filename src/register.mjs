@@ -30,14 +30,25 @@ export function providerConfig() {
   }
 }
 
+function restoredModels(stored) {
+  if (!Array.isArray(stored?.models)) return undefined
+  return stored.models.filter((model) => model && typeof model.id === "string" && model.id.length > 0)
+}
+
 export async function refreshModels(context) {
   // Pi calls this once with allowNetwork false to restore a snapshot, then
   // again when a credential resolves. Returning nothing leaves the current
   // list in place. Returning [] would wipe it, because an array is published.
-  if (context?.allowNetwork === false) return undefined
+  // A saved list, including an empty one, is that snapshot.
+  if (context?.allowNetwork === false) return restoredModels(context.stored)
   const apiKey =
     context?.credential?.type === "api_key" ? context.credential.key : (process.env[API_KEY_ENV] ?? "")
-  return fetchCatalog(OFFICIAL_BASE_URL, apiKey, context?.signal, { force: context?.force === true })
+  const models = await fetchCatalog(OFFICIAL_BASE_URL, apiKey, context?.signal, { force: context?.force === true })
+  if (context?.signal?.aborted) return undefined
+  if (typeof context?.publish === "function") {
+    await context.publish({ persist: { models, checkedAt: Date.now() } })
+  }
+  return models
 }
 
 export function registerAnyrouter(pi) {

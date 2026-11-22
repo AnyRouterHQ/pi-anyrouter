@@ -63,6 +63,46 @@ test("an offline refresh does not fetch and does not return an empty list", asyn
   }
 })
 
+test("an offline refresh restores the saved list", async () => {
+  clearCatalogCache()
+  const stub = stubFetch({ data: [row] })
+  const saved = [{ id: row.id, name: row.display_name, type: "chat" }]
+  try {
+    const models = await refreshModels({
+      allowNetwork: false,
+      signal: new AbortController().signal,
+      stored: { models: saved, checkedAt: 1 },
+    })
+    assert.deepEqual(models, saved)
+    assert.equal(stub.calls.length, 0)
+  } finally {
+    stub.restore()
+  }
+})
+
+test("a live refresh persists the mapped list", async () => {
+  clearCatalogCache()
+  const stub = stubFetch({ data: [row] })
+  const persisted = []
+  try {
+    const models = await refreshModels({
+      allowNetwork: true,
+      credential: { type: "api_key", key: "sk-ar-v1-stored" },
+      signal: new AbortController().signal,
+      publish(publication) {
+        persisted.push(publication)
+      },
+    })
+    assert.equal(models[0].id, row.id)
+    assert.equal(persisted.length, 1)
+    assert.equal(persisted[0].persist.models[0].id, row.id)
+    assert.equal(typeof persisted[0].persist.checkedAt, "number")
+    assert.equal(stub.calls[0].init.redirect, "error")
+  } finally {
+    stub.restore()
+  }
+})
+
 test("a refresh uses the resolved credential rather than the environment", async () => {
   clearCatalogCache()
   const stub = stubFetch({ data: [row] })

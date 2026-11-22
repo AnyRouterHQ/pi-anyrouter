@@ -19,6 +19,9 @@ export const API_KEY_ENV = "ANYROUTER_API_KEY"
 /** Matches the catalog response `cache-control: max-age=300`. */
 export const CATALOG_TTL_MS = 5 * 60 * 1000
 
+/** A hung `GET /models` must not occupy the single-flight slot for the process lifetime. */
+export const CATALOG_TIMEOUT_MS = 15_000
+
 /**
  * Used when `top_provider.max_completion_tokens` is null.
  * The catalog documents null as "no upstream declared a cap", not unlimited.
