@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "v0.1.*"
+  release:
+    types:
+      - published
 
 permissions:
   contents: read
@@ -18,6 +21,8 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
       - run: npm test
+      - name: Refuse a version outside the 0.1.x line
+        run: node -e 'const v=require("./package.json").version; if(!/^0\.1\.\d+/.test(v)) { console.error(v+" is outside 0.1.x"); process.exit(1) }'
       - run: npm publish --access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

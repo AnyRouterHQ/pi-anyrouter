@@ -119,21 +119,5 @@ npm run publish:local
 ```
 
 `.npmrc` reads `NPM_TOKEN` from the environment, so the token stays out of the
-shell history and out of git.
-
-### Version rule
-
-The package stays in the `0.1.x` line. `test/version.test.mjs` fails on any
-version outside it, so a `1.0.0` publish cannot happen by accident. Raise the
-line with `npm version 0.1.1`, not by hand.
-
-### Continuous publish
-
-Pushing a `v0.1.*` tag runs `.github/workflows/publish.yml`, which runs the tests
-and publishes with the `NPM_TOKEN` repository secret. Add that secret in the
-repository settings, then:
-
-```bash
-npm version 0.1.1
-git push origin main --follow-tags
-```
+shell history and out of git. Release and publish automation lives in
+[AGENTS.md](AGENTS.md).
