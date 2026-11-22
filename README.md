@@ -105,3 +105,18 @@ the live `/models` payload is shaped.
   gets a 5-request trial.
 - Bring-your-own-key routes through your own provider keys at `$0` markup.
   Pi then shows a zero AnyRouter price, which is what the account is charged.
+
+## Publishing
+
+The package publishes as `@anyr/pi`. Put an npm access token for the `@anyr`
+scope in `.env.local` (copied from `.env.example`, never committed), then:
+
+```bash
+set -a
+source .env.local
+set +a
+npm run publish:local
+```
+
+`.npmrc` reads `NPM_TOKEN` from the environment, so the token stays out of the
+shell history and out of git. Bumped versions publish the same way.
