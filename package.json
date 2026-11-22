@@ -1,0 +1,28 @@
+{
+  "name": "pi-anyrouter",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "./index.mjs",
+  "description": "Official AnyRouter provider extension for the pi coding agent",
+  "keywords": ["pi", "pi-package", "pi-extension", "anyrouter", "openai-compatible"],
+  "license": "MIT",
+  "files": ["LICENSE", "README.md", "index.mjs", "src"],
+  "pi": {
+    "extensions": ["./index.mjs"]
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-ai": {
+      "optional": true
+    },
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  }
+}
