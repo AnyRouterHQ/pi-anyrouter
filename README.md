@@ -20,7 +20,7 @@ Two options. Use the extension when you want the live catalog and the compatibil
 Extension, from npm (published under the `@anyr` scope):
 
 ```bash
-pi install @anyr/pi
+pi install npm:@anyr/pi
 ```
 
 Extension, from git:
