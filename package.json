@@ -24,11 +24,13 @@
     "LICENSE",
     "README.md",
     "index.mjs",
+    "mcp-config.mjs",
     "src"
   ],
   "pi": {
     "extensions": [
-      "./index.mjs"
+      "./index.mjs",
+      "./mcp-config.mjs"
     ]
   },
   "scripts": {

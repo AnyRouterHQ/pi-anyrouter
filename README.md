@@ -15,33 +15,40 @@ the URL, because that guess treats an unknown host as OpenAI
 
 ## Install
 
-Two options. Use the extension when you want the live catalog and the compatibility flags. Use the AnyRouter CLI when you want the shortest path, and the launcher writes the provider, sets the key and starts pi.
-
-Extension, from npm (published under the `@anyr` scope):
-
 ```bash
 pi install npm:@anyr/pi
 ```
 
-Extension, from git:
+Or from git:
 
 ```bash
 pi install git:github.com/AnyRouterHQ/pi-anyrouter
 ```
 
-Or the AnyRouter CLI:
+Then set your key and start pi:
+
+```bash
+export ANYROUTER_API_KEY="sk-ar-v1-..."
+pi --provider anyrouter --model openai/gpt-5.4-mini
+```
+
+## Using AnyRouter in pi
+
+- `pi --provider anyrouter` makes AnyRouter the provider for that session.
+- `pi --provider anyrouter --model anthropic/claude-sonnet-4-6` pins one model.
+- `/model` inside pi opens the picker, which lists the live catalog.
+- `/mcp` lists the MCP servers configured for the session, including AnyRouter when its MCP is set up.
+
+## Prefer not to install a plugin?
+
+The AnyRouter CLI sets up the same provider without this package. It writes the config, sets `ANYROUTER_API_KEY` and starts pi:
 
 ```bash
 curl -fsSL https://anyr.dev/cli.sh | bash
 anyr pi
 ```
 
-Then:
-
-```bash
-export ANYROUTER_API_KEY="sk-ar-v1-..."
-pi --provider anyrouter --model openai/gpt-5.4-mini
-```
+Use the CLI when you want the launcher to own the setup. The extension is the better fit when you want the live catalog and the per-row compatibility flags inside pi.
 
 `/model` lists the chat rows from the live catalog. Model ids are the catalog
 ids, such as `anthropic/claude-sonnet-4-6` or `anyrouter/free`.
